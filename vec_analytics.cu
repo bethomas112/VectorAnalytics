@@ -19,7 +19,7 @@ struct std_dev_help : public unary_function<float, float> {
    std_dev_help(float mean) {
       standardMean = mean;
    }
-   __host__ __device__ T operator()(float &x) const {
+   __host__ __device__ float operator()(float &x) const {
       return (x - standardMean) * (x - standardMean);
    }
 };
@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
    mean = reduce(d_elements.begin(), d_elements.end(), 0.0, plus<float>()) / numElements;
    std::cout << mean << "\n";
 
-   standardDeviation = transform_reduce(d_elements.begin(), d_elements.end(), std_dev_help(mean), 0.0, plus<float>()) / numElements;
+   standardDeviation = sqrt(transform_reduce(d_elements.begin(), d_elements.end(), std_dev_help(mean), 0.0, plus<float>()) / numElements);
    std::cout << standardDeviation << "\n";
 
    return 0;
