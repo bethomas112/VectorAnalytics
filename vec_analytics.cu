@@ -1,11 +1,21 @@
 #include <fcntl.h>
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <thrust/device_vector.h>
 #include <unistd.h>
 
 #define FLOAT_SIZE 4
 
+void readElements(int fp, int numElements, 
+ thrust::device_vector<float> elements) {
+   float temp;
+   for (int i = 0; i < numElements; i++) {
+      read(fp, &temp, FLOAT_SIZE);
+      elements[i] = temp;
+   }
+}
 
 int main(int argc, char **argv) {
    int fp;
@@ -22,9 +32,14 @@ int main(int argc, char **argv) {
    }
    
    read(fp, &numElements, FLOAT_SIZE);
-
    
-
+   thrust::device_vector<float> elements(numElements);
+   readElements(fp, numElements, elements);
+      
+   for (int i = 0; i < numElements; i++) {
+      std::cout << elements[i] << "\n";
+   }  
+   
    return 0; 
    
 }
