@@ -16,13 +16,13 @@ using namespace thrust;
 
 struct std_dev_help : public unary_function<float, float> {
    float standardMean;
-   device_vector *histoArr;
-   std_dev_help(float mean, device_vector *histo) {
+   int *histoArr;
+   std_dev_help(float mean, int *histo) {
       standardMean = mean;
       histoArr = histo;
    }
-   __host__ __device__ float operator()(float &x) const {
-      atomicAdd(histoArr + (int)x, 1);
+   __device__ float operator()(float &x) const {
+      atomicAdd(&histoArr[(int)x], 1);
       return (x - standardMean) * (x - standardMean);
    }
 };
@@ -54,17 +54,20 @@ int main(int argc, char **argv) {
    }
 
    read(fp, &numElements, FLOAT_SIZE);
-   device_vector<int> histoArr(numElements, 0);
    host_vector<float> elements(numElements);
+   
    readElements(fp, numElements, &elements);
 
    // Mean
    device_vector<float> d_elements = elements;
    mean = reduce(d_elements.begin(), d_elements.end(), 0.0, plus<float>()) / numElements;
    std::cout << mean << "\n";
-
+   
+   int *dHistArr;
+   cudaMalloc(&dHistArr, sizeof(int) * 100);
+   cudaMemset(dHistArr, 0, sizeof(int) * 100);
    // Standard Deviation and create histogram
-   standardDeviation = sqrt(transform_reduce(d_elements.begin(), d_elements.end(), std_dev_help(mean, &histoArr), 0.0, plus<float>()) / numElements);
+   standardDeviation = sqrt(transform_reduce(d_elements.begin(), d_elements.end(), std_dev_help(mean, dHistArr), 0.0, plus<float>()) / numElements);
    std::cout << standardDeviation << "\n";
 
    min = *min_element(d_elements.begin(), d_elements.end());
@@ -72,9 +75,11 @@ int main(int argc, char **argv) {
 
    max = *max_element(d_elements.begin(), d_elements.end());
    std::cout << max << "\n";
-
-   for (int x = 0; x < numElements; x++) {
-      std::cout << "x, " << histoArr[x] << "\n";
+   
+   int histoArr[100];
+   cudaMemcpy(histoArr, dHistArr, sizeof(int) * 100, cudaMemcpyDeviceToHost);
+   for (int x = 0; x < 100; x++) {
+      std::cout << x << ", " << histoArr[x] << "\n";
    }
    return 0;
 }
