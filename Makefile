@@ -6,4 +6,4 @@ vec_analy: vec_analytics.cu
 	nvcc $(NVFLAGS) $^
 
 clean: 
-	-rm -r vec_analytics
+	-rm -f vec_analytics
