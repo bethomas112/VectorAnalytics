@@ -12,7 +12,18 @@
 
 #define FLOAT_SIZE 4
 
+using std::cout;
 using namespace thrust;
+
+/* This macro was taken from the book CUDA by example. This code is used for
+ * error checking */
+static void HandleError(cudaError_t err, const char *file, int line ) { 
+   if (err != cudaSuccess) {
+      printf("%s in %s at line %d\n", cudaGetErrorString(err), file, line);
+      exit(1);
+   }   
+}
+#define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))
 
 struct std_dev_help : public unary_function<float, float> {
    float standardMean;
@@ -22,7 +33,12 @@ struct std_dev_help : public unary_function<float, float> {
       histoArr = histo;
    }
    __device__ float operator()(float &x) const {
-      atomicAdd(&histoArr[(int)x], 1);
+      if (x > 99) {
+         atomicAdd(&histoArr[99], 1);
+      }
+      else {
+         atomicAdd(&histoArr[(int)x], 1);
+      }
       return (x - standardMean) * (x - standardMean);
    }
 };
@@ -30,7 +46,10 @@ struct std_dev_help : public unary_function<float, float> {
 void readElements(int fp, int numElements, host_vector<float> *elements) {
    float temp;
    for (int i = 0; i < numElements; i++) {
-      read(fp, &temp, FLOAT_SIZE);
+      if (read(fp, &temp, FLOAT_SIZE) == -1) {
+         perror("read");
+         exit(1);
+      }
       (*elements)[i] = temp;
    }
 }
@@ -43,8 +62,8 @@ int main(int argc, char **argv) {
    float min;
    float max;
 
-   if (argc < 2) {
-      fprintf(stderr, "Usage: %s <infile>\n", *argv);
+   if (argc < 3) {
+      fprintf(stderr, "Usage: %s <infile> <histogram outfile>\n", *argv);
       exit(1);
    }
 
@@ -53,33 +72,47 @@ int main(int argc, char **argv) {
       exit(1);
    }
 
-   read(fp, &numElements, FLOAT_SIZE);
+   if (read(fp, &numElements, FLOAT_SIZE) == -1) {
+      perror("read");
+      exit(1);
+   }
    host_vector<float> elements(numElements);
    
    readElements(fp, numElements, &elements);
 
-   // Mean
+   // Compute Mean
    device_vector<float> d_elements = elements;
-   mean = reduce(d_elements.begin(), d_elements.end(), 0.0, plus<float>()) / numElements;
-   std::cout << mean << "\n";
+   mean = reduce(d_elements.begin(), d_elements.end(), 0.0, plus<float>()) 
+    / numElements;
    
    int *dHistArr;
-   cudaMalloc(&dHistArr, sizeof(int) * 100);
-   cudaMemset(dHistArr, 0, sizeof(int) * 100);
+   HANDLE_ERROR(cudaMalloc(&dHistArr, sizeof(int) * 100));
+   HANDLE_ERROR(cudaMemset(dHistArr, 0, sizeof(int) * 100));
+
    // Standard Deviation and create histogram
-   standardDeviation = sqrt(transform_reduce(d_elements.begin(), d_elements.end(), std_dev_help(mean, dHistArr), 0.0, plus<float>()) / numElements);
-   std::cout << standardDeviation << "\n";
+   standardDeviation = sqrt(transform_reduce(d_elements.begin(), 
+    d_elements.end(), std_dev_help(mean, dHistArr), 0.0, plus<float>()) 
+    / numElements);
 
+   // Compute the Min and Max
    min = *min_element(d_elements.begin(), d_elements.end());
-   std::cout << min << "\n";
-
    max = *max_element(d_elements.begin(), d_elements.end());
-   std::cout << max << "\n";
    
    int histoArr[100];
-   cudaMemcpy(histoArr, dHistArr, sizeof(int) * 100, cudaMemcpyDeviceToHost);
+   HANDLE_ERROR(cudaMemcpy(histoArr, dHistArr, sizeof(int) * 100, 
+    cudaMemcpyDeviceToHost));
+
+   // Print Stats
+   cout << "Count              : " << numElements << "\n";
+   cout << "Minimum            : " << min << "\n";
+   cout << "Maximum            : " << max << "\n";
+   cout << "Mean               : " << mean << "\n"; 
+   cout << "Standard Deviation : " << standardDeviation << "\n";
+
+   // Write the Histogram File
+   FILE *outfile = fopen(argv[2], "w");
    for (int x = 0; x < 100; x++) {
-      std::cout << x << ", " << histoArr[x] << "\n";
+      fprintf(outfile, "%d, %d\n", x, histoArr[x]);
    }
    return 0;
 }
