@@ -37,6 +37,8 @@ int main(int argc, char **argv) {
    int numElements;
    float mean;
    float standardDeviation;
+   float min;
+   float max;
 
    if (argc < 2) {
       fprintf(stderr, "Usage: %s <infile>\n", *argv);
@@ -61,5 +63,10 @@ int main(int argc, char **argv) {
    standardDeviation = sqrt(transform_reduce(d_elements.begin(), d_elements.end(), std_dev_help(mean), 0.0, plus<float>()) / numElements);
    std::cout << standardDeviation << "\n";
 
+   min = min_element(d_elements.begin(), d_elements.end());
+   std::cout << min << "\n";
+
+   max = max_element(d_elements.begin(), d_elements.end());
+   std::cout << max << "\n";
    return 0;
 }
