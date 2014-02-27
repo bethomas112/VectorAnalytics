@@ -60,9 +60,6 @@ int main(int argc, char **argv) {
    int numElements;
    int commSize;
    int commRank;
-   int blockSize = 256;
-   int gridSize = 10000;
-   int dataSizePerNode = gridSize * blockSize;
    host_vector<float> elements;
 
    if (argc < 3) {
@@ -87,11 +84,17 @@ int main(int argc, char **argv) {
          perror("read");
          exit(1);
       }
+      int dataSizePerNode = numElements / 4;
+
       readElements(fp, numElements, &elements);
    }
 
    // Allocate a buffer on each node
-   host_vector<float> elementsNode(dataSizePerNode);
+   host_vector<float> elementsNode;
+
+   for (int x = 0; x < dataSizePerNode; x++) {
+      elementsNode.push_back(elements[x + (dataSizePerNode * commRank)]);
+   }
 
    // Dispatch portions of input data to each node
    MPI_Scatter(elements, dataSizePerNode, MPI_FLOAT, 
