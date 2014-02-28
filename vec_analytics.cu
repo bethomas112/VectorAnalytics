@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #define FLOAT_SIZE 4
+#define MAX_ELEMENTS 500000000
 
 using std::cout;
 using namespace thrust;
@@ -43,24 +44,31 @@ struct std_dev_help : public unary_function<float, float> {
    }
 };
 
-void readElements(int fp, int numElements, host_vector<float> *elements) {
-   float temp;
-   for (int i = 0; i < numElements; i++) {
+void readElements(int fp, int numElements, float *elements, int size) {
+   //float temp;
+   if (read(fp, elements, size) == -1) {
+      perror("read");
+      exit(1);
+   }
+   /*for (int i = 0; i < numElements; i++) {
       if (read(fp, &temp, FLOAT_SIZE) == -1) {
          perror("read");
          exit(1);
       }
       (*elements)[i] = temp;
-   }
+   }*/
 }
 
 int main(int argc, char **argv) {
    int fp;
+   int readSize;
    int numElements;
    float mean;
    float standardDeviation;
-   float min;
-   float max;
+   float min = 101;
+   float max = -1;
+   float newMin, newMax;
+   int count = 0;
 
    if (argc < 3) {
       fprintf(stderr, "Usage: %s <infile> <histogram outfile>\n", *argv);
@@ -76,27 +84,68 @@ int main(int argc, char **argv) {
       perror("read");
       exit(1);
    }
-   host_vector<float> elements(numElements);
-   
-   readElements(fp, numElements, &elements);
 
-   // Compute Mean
-   device_vector<float> d_elements = elements;
-   mean = reduce(d_elements.begin(), d_elements.end(), 0.0, plus<float>()) 
-    / numElements;
+   float *elements;
    
+   if (numElements <= MAX_ELEMENTS) {
+      readSize = numElements;
+   }
+   else {
+      readSize = numElements / 2;
+   }
+   
+   elements = (float *)malloc(sizeof(float) * readSize);
+   if (!elements) {
+      perror("malloc");
+      exit(1);
+   }
+  
+   // Allocate space on device 
+   device_vector<float> d_elements(readSize);
    int *dHistArr;
    HANDLE_ERROR(cudaMalloc(&dHistArr, sizeof(int) * 100));
    HANDLE_ERROR(cudaMemset(dHistArr, 0, sizeof(int) * 100));
 
-   // Standard Deviation and create histogram
-   standardDeviation = sqrt(transform_reduce(d_elements.begin(), 
-    d_elements.end(), std_dev_help(mean, dHistArr), 0.0, plus<float>()) 
-    / numElements);
 
-   // Compute the Min and Max
-   min = *min_element(d_elements.begin(), d_elements.end());
-   max = *max_element(d_elements.begin(), d_elements.end());
+   while (count < numElements) {
+      // Read Elements in from file 
+      readElements(fp, numElements, elements, readSize * FLOAT_SIZE);
+      
+      // Copy Elements to Device
+      thrust::copy(elements, elements + readSize, d_elements.begin());
+      // Compute Mean
+      mean += reduce(d_elements.begin(), d_elements.end(), 0.0, 
+       plus<float>());
+      
+      // Compute the Min and Max
+      newMin = *min_element(d_elements.begin(), d_elements.end());
+      newMax = *max_element(d_elements.begin(), d_elements.end());
+
+      min = newMin < min ? newMin : min;
+      max = newMax > max ? newMax : max;
+      
+      count += readSize;
+   }
+
+   lseek(fp, FLOAT_SIZE, SEEK_SET);
+   count = 0;
+   mean /= numElements;
+
+   while (count < numElements) {
+
+      if (readSize != numElements) {
+         // Read Elements in from file 
+         readElements(fp, numElements, elements, readSize * FLOAT_SIZE);
+         // Copy Elements to Device
+         thrust::copy(elements, elements + readSize, d_elements.begin());
+      }
+
+      // Standard Deviation and create histogram
+      standardDeviation += transform_reduce(d_elements.begin(), 
+       d_elements.end(), std_dev_help(mean, dHistArr), 0.0, plus<float>());
+      count += readSize;
+   }
+   standardDeviation = sqrt(standardDeviation / numElements);
    
    int histoArr[100];
    HANDLE_ERROR(cudaMemcpy(histoArr, dHistArr, sizeof(int) * 100, 
@@ -114,5 +163,7 @@ int main(int argc, char **argv) {
    for (int x = 0; x < 100; x++) {
       fprintf(outfile, "%d, %d\n", x, histoArr[x]);
    }
+   free(elements);
    return 0;
+   
 }
