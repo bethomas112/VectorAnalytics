@@ -12,6 +12,7 @@
 
 #define FLOAT_SIZE 4
 #define MAX_ELEMENTS 500000000
+#define SPLIT_NUM 2
 
 using std::cout;
 using namespace thrust;
@@ -83,7 +84,7 @@ int main(int argc, char **argv) {
       readSize = numElements;
    }
    else {
-      readSize = numElements / 2;
+      readSize = numElements / SPLIT_NUM;
    }
    printf("readSize: %d\n", readSize);
    elements = (float *)malloc(sizeof(float) * readSize);

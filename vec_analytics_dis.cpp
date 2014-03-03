@@ -10,6 +10,7 @@
 #include "vec_analytics_dis.h"
 
 #define FLOAT_SIZE 4
+#define NUM_NODES 4
 
 using std::cout;
 using std::vector;
@@ -17,8 +18,10 @@ using std::vector;
 void readElements(int fp, int numElements, float *elements, 
  int commRank) {
    float temp;
-   lseek(fp, (FLOAT_SIZE * (numElements / 4)) * commRank, SEEK_CUR);
-   if (read(fp, elements, FLOAT_SIZE * (numElements / 4)) == -1) {
+   unsigned int seekPos = (FLOAT_SIZE * (numElements / NUM_NODES) * 
+    commRank);
+   lseek(fp, seekPos, SEEK_CUR);
+   if (read(fp, elements, FLOAT_SIZE * (numElements / NUM_NODES)) == -1) {
       perror("read in readElements");
       exit(1);
    }
@@ -46,7 +49,7 @@ int main(int argc, char **argv) {
       exit(1);
    }
    
-   elements = (float *)malloc(sizeof(float) * (numElements / 4));
+   elements = (float *)malloc(sizeof(float) * (numElements / NUM_NODES));
    if (!elements) {
       perror("malloc");
       exit(1);
@@ -60,24 +63,24 @@ int main(int argc, char **argv) {
    MPI_Comm_rank(MPI_COMM_WORLD, &commRank);
 
    readElements(fp, numElements, elements, commRank);
-   dataSizePerNode = numElements / 4;
+   dataSizePerNode = numElements / NUM_NODES;
 
    // Compute Mean
-   float mean_node = computeMean(elements, dataSizePerNode);   
+   float mean_node = computeMean(elements, dataSizePerNode);
 
    // Standard Deviation and create histogram
    int histo[100];
    float mean;
 
    MPI_Allreduce(&mean_node, &mean, 1, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
-
    mean /=numElements;
   
    // Compute Std Deviation, min and max
    float minimum_node;
    float maximum_node;
    float standardDeviation_node = computeStdDevMinMax(elements, histo, mean,
-    numElements / 4, &minimum_node, &maximum_node);
+    numElements / NUM_NODES, &minimum_node, &maximum_node);
+
 
    // Global variables to use
    float standardDeviation;
@@ -92,7 +95,7 @@ int main(int argc, char **argv) {
    MPI_Reduce(&maximum_node, &maximum, 1,
     MPI_FLOAT, MPI_MAX, 0, MPI_COMM_WORLD);
    MPI_Allreduce(histo, histoArr, 100, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
+   
    if (!commRank) {
       // final calculations
       standardDeviation = sqrt(standardDeviation / numElements);
