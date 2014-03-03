@@ -5,11 +5,11 @@
 using namespace std;
 
 
-float computeMean(vector<float> elementsNode);
+float computeMean(float *elementsNode, int numElements);
 
-float computeStdDeviation(int *histo, vector<float> elementsNode);
+float computeStdDeviation(int *histo, float mean);
 
-float getMin(vector<float> elementsNode);
+float getMin(NULL);
    
-float getMax(vector<float> elementsNode);
+float getMax(NULL);
 #endif

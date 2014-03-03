@@ -7,6 +7,7 @@
 #include "vec_analytics_dis.h"
 
 using std::vector;
+thrust::device_vector<float> d_elements(1);
 
 /* This macro was taken from the book CUDA by example. This code is used for
  * error checking */
@@ -37,17 +38,15 @@ struct std_dev_help : public thrust::unary_function<float, float> {
 };
 
 
-float computeMean(vector<float> elementsNode) {
-   thrust::device_vector<float> d_elements = elementsNode;
+float computeMean(float *elementsNode, int numElements) {
+   thrust::copy(elementsNode, numElements, d_elements.begin());
    return thrust::reduce(d_elements.begin(), d_elements.end(), 0.0, 
     thrust::plus<float>());
 }
 
-float computeStdDeviation(int *histo, vector<float> elementsNode,
- float mean) {
+float computeStdDeviation(int *histo, float mean) {
    int *dHistArr; 
    float stdDeviation;
-   thrust::device_vector<float> d_elements = elementsNode;
    
    HANDLE_ERROR(cudaMalloc(&dHistArr, sizeof(int) * 100));
    HANDLE_ERROR(cudaMemset(dHistArr, 0, sizeof(int) * 100));
@@ -64,12 +63,10 @@ float computeStdDeviation(int *histo, vector<float> elementsNode,
    return stdDeviation;
 }
 
-float getMin(vector<float> elementsNode) {
-   thrust::device_vector<float> d_elements = elementsNode;
+float getMin(NULL) {
    return *min_element(d_elements.begin(), d_elements.end());
 }
 
-float getMax(vector<float> elementsNode) {
-   thrust::device_vector<float> d_elements = elementsNode;
+float getMax(NULL) {
    return *max_element(d_elements.begin(),d_elements.end());
 }
