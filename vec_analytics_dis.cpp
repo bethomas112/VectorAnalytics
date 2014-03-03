@@ -63,23 +63,22 @@ int main(int argc, char **argv) {
    dataSizePerNode = numElements / 4;
 
    // Compute Mean
-   float mean_node = computeMean(elements);   
+   float mean_node = computeMean(elements, dataSizePerNode);   
 
    // Standard Deviation and create histogram
    int histo[100];
    float mean;
 
    MPI_Reduce(&mean_node, &mean, 2, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
-   if (!commRank) {
-      mean /=numElements;
-   }  
+      
+   mean /=numElements;
+  
    
-   float standardDeviation_node = computeStdDeviation(histo, elements, 
-    mean);
-
-   // Compute the Min and Max
-   float minimum_node = getMin(elements);
-   float maximum_node = getMax(elements);
+   // Compute Std Deviation, min and max
+   float minimum_node;
+   float maximum_node;
+   float standardDeviation_node = computeStdDevMinMax(elements, histo, mean 
+    numElements / 4, &minimum_node, &maximumNode);
 
    // Global variables to use
    float standardDeviation;

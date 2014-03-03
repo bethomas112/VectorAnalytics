@@ -7,7 +7,6 @@
 #include "vec_analytics_dis.h"
 
 using std::vector;
-thrust::device_vector<float> d_elements(1);
 
 /* This macro was taken from the book CUDA by example. This code is used for
  * error checking */
@@ -38,15 +37,21 @@ struct std_dev_help : public thrust::unary_function<float, float> {
 };
 
 
-float computeMean(float *elementsNode, int numElements) {
-   thrust::copy(elementsNode, numElements, d_elements.begin());
+float computeMean(float *elements, int numElements) {
+   thrust::device_vector<float> d_elements(numElements);
+
+   thrust::copy(elements, numElements, d_elements.begin());
    return thrust::reduce(d_elements.begin(), d_elements.end(), 0.0, 
     thrust::plus<float>());
 }
 
-float computeStdDeviation(int *histo, float mean) {
+float computeStdDevMinMax(float *elements, int *histo, float mean, 
+ int numElements, float *min, float *max) {
    int *dHistArr; 
    float stdDeviation;
+   thrust::device_vector<float> d_elements(numElements);
+
+   thust::copy(elements, numElements, d_elements.begin());
    
    HANDLE_ERROR(cudaMalloc(&dHistArr, sizeof(int) * 100));
    HANDLE_ERROR(cudaMemset(dHistArr, 0, sizeof(int) * 100));
@@ -59,14 +64,7 @@ float computeStdDeviation(int *histo, float mean) {
     cudaMemcpyDeviceToHost));
    
    HANDLE_ERROR(cudaFree(dHistArr));
-   
+   *min = *min_element(d_elements.begin(), d_elements.end());
+   *max = *max_element(d_elements.begin(), d_elements.end());
    return stdDeviation;
-}
-
-float getMin(NULL) {
-   return *min_element(d_elements.begin(), d_elements.end());
-}
-
-float getMax(NULL) {
-   return *max_element(d_elements.begin(),d_elements.end());
 }

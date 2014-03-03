@@ -5,11 +5,9 @@
 using namespace std;
 
 
-float computeMean(float *elementsNode, int numElements);
+float computeMean(float *elements, int numElements);
 
-float computeStdDeviation(int *histo, float mean);
+float computeStdDevMinMax(float *elements, int *histo, float mean,
+ int numElements, float *min, float *max);
 
-float getMin(NULL);
-   
-float getMax(NULL);
-#endif
+#endif 
