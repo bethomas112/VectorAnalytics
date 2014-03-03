@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <cmath>
+#include <cuda.h>
+#include <cuda_runtime_api.h>
 #include <mpi.h>
 #include <unistd.h>
 
@@ -14,7 +16,7 @@
 using std::cout;
 using std::vector;
 
-void readElements(int fp, int numElements, vector<float> *elements, 
+void readElements(int fp, int numElements, float *elements, 
  int commRank) {
    float temp;
    lseek(fp, (FLOAT_SIZE * numElements / 4) * commRank, SEEK_CUR);
@@ -59,7 +61,7 @@ int main(int argc, char **argv) {
    MPI_Comm_size(MPI_COMM_WORLD, &commSize);
    MPI_Comm_rank(MPI_COMM_WORLD, &commRank);
 
-   readElements(fp, numElements, &elements, commRank);
+   readElements(fp, numElements, elements, commRank);
    dataSizePerNode = numElements / 4;
 
    // Compute Mean
@@ -77,8 +79,8 @@ int main(int argc, char **argv) {
    // Compute Std Deviation, min and max
    float minimum_node;
    float maximum_node;
-   float standardDeviation_node = computeStdDevMinMax(elements, histo, mean 
-    numElements / 4, &minimum_node, &maximumNode);
+   float standardDeviation_node = computeStdDevMinMax(elements, histo, mean,
+    numElements / 4, &minimum_node, &maximum_node);
 
    // Global variables to use
    float standardDeviation;

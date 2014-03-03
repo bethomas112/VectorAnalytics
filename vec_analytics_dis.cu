@@ -40,7 +40,7 @@ struct std_dev_help : public thrust::unary_function<float, float> {
 float computeMean(float *elements, int numElements) {
    thrust::device_vector<float> d_elements(numElements);
 
-   thrust::copy(elements, numElements, d_elements.begin());
+   thrust::copy(elements, elements + numElements, d_elements.begin());
    return thrust::reduce(d_elements.begin(), d_elements.end(), 0.0, 
     thrust::plus<float>());
 }
@@ -51,7 +51,7 @@ float computeStdDevMinMax(float *elements, int *histo, float mean,
    float stdDeviation;
    thrust::device_vector<float> d_elements(numElements);
 
-   thust::copy(elements, numElements, d_elements.begin());
+   thrust::copy(elements, elements + numElements, d_elements.begin());
    
    HANDLE_ERROR(cudaMalloc(&dHistArr, sizeof(int) * 100));
    HANDLE_ERROR(cudaMemset(dHistArr, 0, sizeof(int) * 100));
