@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
    else {
       readSize = numElements / 2;
    }
-   
+   printf("readSize: %d\n", readSize);
    elements = (float *)malloc(sizeof(float) * readSize);
    if (!elements) {
       perror("malloc");

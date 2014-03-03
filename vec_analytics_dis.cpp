@@ -17,8 +17,8 @@ using std::vector;
 void readElements(int fp, int numElements, float *elements, 
  int commRank) {
    float temp;
-   lseek(fp, (FLOAT_SIZE * numElements / 4) * commRank, SEEK_CUR);
-   if (read(fp, elements, FLOAT_SIZE * numElements / 4) == -1) {
+   lseek(fp, (FLOAT_SIZE * (numElements / 4)) * commRank, SEEK_CUR);
+   if (read(fp, elements, FLOAT_SIZE * (numElements / 4)) == -1) {
       perror("read in readElements");
       exit(1);
    }
@@ -46,8 +46,7 @@ int main(int argc, char **argv) {
       exit(1);
    }
    
-   elements = (float *)malloc(sizeof(float) * numElements / 4);
-   printf("Num Elements: %d\n", numElements);
+   elements = (float *)malloc(sizeof(float) * (numElements / 4));
    if (!elements) {
       perror("malloc");
       exit(1);
@@ -70,10 +69,7 @@ int main(int argc, char **argv) {
    int histo[100];
    float mean;
 
-   MPI_Reduce(&mean_node, &mean, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
-   MPI_Reduce(&mean_node, &mean, 1, MPI_FLOAT, MPI_SUM, 1, MPI_COMM_WORLD);
-   MPI_Reduce(&mean_node, &mean, 1, MPI_FLOAT, MPI_SUM, 2, MPI_COMM_WORLD);
-   MPI_Reduce(&mean_node, &mean, 1, MPI_FLOAT, MPI_SUM, 3, MPI_COMM_WORLD);
+   MPI_Allreduce(&mean_node, &mean, 1, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
 
    mean /=numElements;
   
