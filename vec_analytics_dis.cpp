@@ -17,13 +17,10 @@ using std::vector;
 void readElements(int fp, int numElements, vector<float> *elements, 
  int commRank) {
    float temp;
-   lseek(fp, (FLOAT_SIZE * numElements / 4) * commRank, SEEK_CUR) 
-   for (int i = 0; i < numElements / 4; i++) {
-      if (read(fp, &temp, FLOAT_SIZE) == -1) {
-         perror("read");
-         exit(1);
-      }
-      (*elements).push_back(temp);
+   lseek(fp, (FLOAT_SIZE * numElements / 4) * commRank, SEEK_CUR);
+   if (read(fp, elements, FLOAT_SIZE * numElements / 4) == -1) {
+      perror("read");
+      exit(1);
    }
 }
 
@@ -33,7 +30,7 @@ int main(int argc, char **argv) {
    int commSize;
    int commRank;
    int dataSizePerNode;
-   vector<float> elements;
+   float *elements;
 
    if (argc < 3) {
       fprintf(stderr, "Usage: %s <infile> <histogram outfile>\n", *argv);
@@ -48,7 +45,12 @@ int main(int argc, char **argv) {
       perror("read");
       exit(1);
    }
-
+   
+   elements = (float *)malloc(sizeof(float) * numElements / 4);
+   if (!elements) {
+      perror("malloc");
+      exit(1);
+   }
 
    // Launch the processes
    MPI_Init(&argc, &argv);
@@ -59,19 +61,9 @@ int main(int argc, char **argv) {
 
    readElements(fp, numElements, &elements, commRank);
    dataSizePerNode = numElements / 4;
-   // Allocate a buffer on each node
-   vector<float> elementsNode;
-   for (int x = 0; x < dataSizePerNode; x++) {
-      elementsNode.push_back(elements[x + (dataSizePerNode * commRank)]);
-   }
-
-   // Dispatch portions of input data to each node
-   MPI_Scatter(elements, dataSizePerNode, MPI_FLOAT, 
-    elementsNode, dataSizePerNode, MPI_FLOAT,
-    0, MPI_COMM_WORLD);
 
    // Compute Mean
-   float mean_node = computeMean(elementsNode);   
+   float mean_node = computeMean(elements);   
 
    // Standard Deviation and create histogram
    int histo[100];
@@ -82,12 +74,12 @@ int main(int argc, char **argv) {
       mean /=numElements;
    }  
    
-   float standardDeviation_node = computeStdDeviation(histo, elementsNode, 
+   float standardDeviation_node = computeStdDeviation(histo, elements, 
     mean);
 
    // Compute the Min and Max
-   float minimum_node = getMin(elementsNode);
-   float maximum_node = getMax(elementsNode);
+   float minimum_node = getMin(elements);
+   float maximum_node = getMax(elements);
 
    // Global variables to use
    float standardDeviation;

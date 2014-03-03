@@ -45,18 +45,10 @@ struct std_dev_help : public unary_function<float, float> {
 };
 
 void readElements(int fp, int numElements, float *elements, int size) {
-   //float temp;
    if (read(fp, elements, size) == -1) {
       perror("read");
       exit(1);
    }
-   /*for (int i = 0; i < numElements; i++) {
-      if (read(fp, &temp, FLOAT_SIZE) == -1) {
-         perror("read");
-         exit(1);
-      }
-      (*elements)[i] = temp;
-   }*/
 }
 
 int main(int argc, char **argv) {
