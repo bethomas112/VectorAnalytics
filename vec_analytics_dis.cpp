@@ -4,8 +4,6 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <cmath>
-#include <cuda.h>
-#include <cuda_runtime_api.h>
 #include <mpi.h>
 #include <unistd.h>
 
@@ -21,7 +19,7 @@ void readElements(int fp, int numElements, float *elements,
    float temp;
    lseek(fp, (FLOAT_SIZE * numElements / 4) * commRank, SEEK_CUR);
    if (read(fp, elements, FLOAT_SIZE * numElements / 4) == -1) {
-      perror("read");
+      perror("read in readElements");
       exit(1);
    }
 }
@@ -49,6 +47,7 @@ int main(int argc, char **argv) {
    }
    
    elements = (float *)malloc(sizeof(float) * numElements / 4);
+   printf("Num Elements: %d\n", numElements);
    if (!elements) {
       perror("malloc");
       exit(1);
@@ -71,11 +70,13 @@ int main(int argc, char **argv) {
    int histo[100];
    float mean;
 
-   MPI_Reduce(&mean_node, &mean, 2, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
-      
+   MPI_Reduce(&mean_node, &mean, 1, MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
+   MPI_Reduce(&mean_node, &mean, 1, MPI_FLOAT, MPI_SUM, 1, MPI_COMM_WORLD);
+   MPI_Reduce(&mean_node, &mean, 1, MPI_FLOAT, MPI_SUM, 2, MPI_COMM_WORLD);
+   MPI_Reduce(&mean_node, &mean, 1, MPI_FLOAT, MPI_SUM, 3, MPI_COMM_WORLD);
+
    mean /=numElements;
   
-   
    // Compute Std Deviation, min and max
    float minimum_node;
    float maximum_node;
@@ -84,33 +85,21 @@ int main(int argc, char **argv) {
 
    // Global variables to use
    float standardDeviation;
-   float minimumHelper[4] = {0, 0, 0, 0};
-   float maximumHelper[4] = {0, 0, 0, 0};
    float minimum;
    float maximum;
    int histoArr[100];
 
-   MPI_Reduce(&standardDeviation_node, &standardDeviation, 2, 
+   MPI_Reduce(&standardDeviation_node, &standardDeviation, 1, 
     MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
-   MPI_Reduce(&minimum_node, &minimumHelper[commRank], 2, 
-    MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
-   MPI_Reduce(&maximum_node, &maximumHelper[commRank], 2,
-    MPI_FLOAT, MPI_SUM, 0, MPI_COMM_WORLD);
+   MPI_Reduce(&minimum_node, &minimum, 1, 
+    MPI_FLOAT, MPI_MIN, 0, MPI_COMM_WORLD);
+   MPI_Reduce(&maximum_node, &maximum, 1,
+    MPI_FLOAT, MPI_MAX, 0, MPI_COMM_WORLD);
    MPI_Allreduce(histo, histoArr, 100, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
    if (!commRank) {
       // final calculations
       standardDeviation = sqrt(standardDeviation / numElements);
-      minimum = minimumHelper[0];
-      maximum = maximumHelper[0];
-      for (int find = 1; find < 4; find++) {
-         if (minimumHelper[find] < minimum) {
-            minimum = minimumHelper[find];
-         }
-         if (maximumHelper[find] > maximum) {
-            maximum = maximumHelper[find];
-         }
-      }
 
       // Print Stats
       cout << "Count              : " << numElements << "\n";
